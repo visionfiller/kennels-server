@@ -59,4 +59,16 @@ INSERT INTO `Employee` VALUES (null, "Meg Ducharme", "404 Unknown Ct", 2);
 INSERT INTO `Employee` VALUES (null, "Hannah Hall", "204 Empty Ave", 1);
 INSERT INTO `Employee` VALUES (null, "Leah Hoefling", "200 Success Way", 2);
 
-SELECT * FROM `Animal`;
+SELECT
+            a.id,
+            a.name,
+            a.breed,
+            a.status,
+            a.location_id,
+            a.customer_id,
+            l.name location_name,
+            l.address location_address
+        FROM Animal a
+        JOIN `Location` l
+            ON l.id = a.location_id
+        WHERE a.status = "Treatment"

@@ -1,3 +1,6 @@
+import sqlite3
+from models import Location, Animal
+
 LOCATIONS = [
     {
         "id": 1,
@@ -12,7 +15,35 @@ LOCATIONS = [
 ]
 
 def get_all_locations():
-    return LOCATIONS
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+
+       
+        db_cursor.execute("""
+        SELECT
+            l.id,
+            l.name name,
+            l.address address,
+            COUNT(*) animals
+        FROM Location l
+        JOIN Animal a ON l.id = a.location_id
+        GROUP BY a.location_id
+        
+       """)
+       
+        locations = []
+
+        # Convert rows of data into a Python list
+        dataset = db_cursor.fetchall()
+
+        # Iterate list of data returned from database
+        for row in dataset:
+
+            location = Location(row['id'],row['name'], row['address'], row['animals'])
+           
+            locations.append(location.__dict__)
+        return locations
 
 # Function with a single parameter
 def get_single_location(id):
