@@ -1,27 +1,98 @@
-EMPLOYEES = [
-    {
-        "id": 1,
-        "name": "Jenna Solis"
-    }
-]
+import sqlite3
+from models import Employee, Location
+from views import get_single_animal
 
 def get_all_employees():
-    return EMPLOYEES
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+
+       
+        db_cursor.execute("""
+        SELECT DISTINCT
+            e.id,
+            e.name,
+            e.address,
+            e.location_id,
+            l.name location_name,
+            l.address location_address,
+            (
+           SELECT GROUP_CONCAT(a.id)
+            FROM AnimalsAssignedtoEmployee t
+            JOIN Animal a ON t.animal_id = a.id
+            WHERE t.employee_id = e.id) as animals_assigned
+            FROM Employee e
+            JOIN Location l
+                ON l.id = e.location_id
+            LEFT OUTER JOIN AnimalsAssignedtoEmployee t
+                    ON t.employee_id = e.id
+            LEFT OUTER JOIN Animal a
+                    ON t.animal_id = a.id
+       """)
+       
+        employees = []
+
+        # Convert rows of data into a Python list
+        dataset = db_cursor.fetchall()
+
+        # Iterate list of data returned from database
+        for row in dataset:
+
+            employee = Employee(row['id'],row['name'], row['address'], row['location_id'])
+            location = Location(row['id'], row['location_name'], row['location_address'])
+            employee.location = location.__dict__
+            animals_assigned = row['animals_assigned'].split(",") if row['animals_assigned'] else []
+            assignments= []
+            for assignment in animals_assigned:
+                assignment_object = get_single_animal(assignment)
+                assignments.append(assignment_object)
+            employee.animals = assignments
+            employees.append(employee.__dict__)
+        return employees
 
 # Function with a single parameter
 def get_single_employee(id):
-    # Variable to hold the found animal, if it exists
-    requested_employee = None
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+         SELECT DISTINCT
+            e.id,
+            e.name,
+            e.address,
+            e.location_id,
+            l.name location_name,
+            l.address location_address,
+            (
+           SELECT GROUP_CONCAT(a.id)
+            FROM AnimalsAssignedtoEmployee t
+            JOIN Animal a ON t.animal_id = a.id
+            WHERE t.employee_id = e.id) as animals_assigned
+            FROM Employee e
+            JOIN Location l
+                ON l.id = e.location_id
+            LEFT OUTER JOIN AnimalsAssignedtoEmployee t
+                    ON t.employee_id = e.id
+            LEFT OUTER JOIN Animal a
+                    ON t.animal_id = a.id
+            WHERE e.id = ?
+        """, (id, ))
 
-    # Iterate the ANIMALS list above. Very similar to the
-    # for..of loops you used in JavaScript.
-    for employee in EMPLOYEES:
-        # Dictionaries in Python use [] notation to find a key
-        # instead of the dot notation that JavaScript used.
-        if employee["id"] == id:
-            requested_employee= employee
+        dataset = db_cursor.fetchall()
 
-    return requested_employee
+        for row in dataset:
+            employee = Employee(row['id'],row['name'], row['address'], row['location_id'])
+            location = Location(row['id'], row['location_name'], row['location_address'])
+            employee.location = location.__dict__
+            animals_assigned = row['animals_assigned'].split(",") if row['animals_assigned'] else []
+            assignments= []
+            for assignment in animals_assigned:
+                assignment_object = get_single_animal(assignment)
+                assignments.append(assignment_object)
+            employee.animals = assignments
+    
+          
+        return employee.__dict__
 def create_employee(employee):
     # Get the id value of the last animal in the list
     max_id = EMPLOYEES[-1]["id"]

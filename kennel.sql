@@ -72,3 +72,12 @@ SELECT
         JOIN `Location` l
             ON l.id = a.location_id
         WHERE a.status = "Treatment"
+CREATE TABLE `AnimalsAssignedToEmployee` (
+    `id`    INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    `animal_id` INTEGER NOT NULL,
+    `employee_id` INTEGER NOT NULL
+);
+INSERT INTO `AnimalsAssignedToEmployee` VALUES (null,3 , 3);
+INSERT INTO `AnimalsAssignedToEmployee` VALUES (null,2 ,1);
+INSERT INTO `AnimalsAssignedToEmployee` VALUES (null, 4, 2);
+INSERT INTO `AnimalsAssignedToEmployee` VALUES (null, 5, 1);

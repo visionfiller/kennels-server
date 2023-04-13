@@ -59,9 +59,19 @@ class HandleRequests(BaseHTTPRequestHandler):
         (resource, id, query_params) = self.parse_url(self.path)
         self._set_headers(200)
         if resource == "animals":
-            response = get_all_animals(query_params)
+            if id is not None:
+                response = get_single_animal(id)
+            else:
+                response = get_all_animals(query_params)
         if resource == "locations":
             response = get_all_locations()
+        if resource == "employees":
+            if id is not None:
+                response = get_single_employee(id)
+            else:
+                response = get_all_employees()
+        if resource == "customers":
+            response = get_all_customers()
         self.wfile.write(json.dumps(response).encode())
         # response = {}  # Default response
 

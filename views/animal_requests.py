@@ -1,5 +1,5 @@
 import sqlite3
-from models import Animal
+from models import Animal, Location
 from .location_requests import get_single_location
 from .customer_requests import get_single_customer
 
@@ -49,6 +49,8 @@ def get_all_animals(query_params):
                     sort_by = " ORDER BY customer_id "
                 if qs_value == 'status':
                     sort_by = "ORDER BY status ASC"
+                if qs_value == "name":
+                    sort_by = "ORDER BY a.name ASC"
             if qs_key == "locationId":
                 where_clause = f"WHERE a.location_id = {qs_value}"
             if qs_key == "status":
@@ -64,8 +66,7 @@ def get_all_animals(query_params):
             l.name location_name,
             l.address location_address
         FROM Animal a
-        JOIN `Location` l
-            ON l.id = a.location_id
+        JOIN Location l ON l.id = a.location_id
         {sort_by}
         {where_clause}"""
         db_cursor.execute(sql_to_execute)
@@ -77,38 +78,33 @@ def get_all_animals(query_params):
         # Iterate list of data returned from database
         for row in dataset:
 
-            # Create an animal instance from the current row.
-            # Note that the database fields are specified in
-            # exact order of the parameters defined in the
-            # Animal class above.
-           
-
-    # Create an animal instance from the current row
             animal = Animal(row['id'], row['name'], row['breed'], row['status'], row['location_id'], row['customer_id'])
-
-   
+            
             animals.append(animal.__dict__)
         return animals
 # Function with a single parameter
 def get_single_animal(id):
-    # Variable to hold the found animal, if it exists
-    requested_animal = None
+ with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+         SELECT
+            a.id,
+            a.name name,
+            a.status,
+            a.breed,
+            a.customer_id,
+            a.location_id 
+        FROM Animal a
+        WHERE a.id = ?
+        """, (id, ))
 
-    # Iterate the ANIMALS list above. Very similar to the
-    # for..of loops you used in JavaScript.
-    for animal in ANIMALS:
-        # Dictionaries in Python use [] notation to find a key
-        # instead of the dot notation that JavaScript used.
-        if animal["id"] == id:
-            requested_animal = animal
-            matching_location = get_single_location(requested_animal["locationId"])
-            requested_animal["location"] = matching_location
-            matching_customer = get_single_customer(requested_animal["customerId"])
-            requested_animal["customer"] = matching_customer
-            del requested_animal["locationId"]
-            del requested_animal["customerId"]
+        data = db_cursor.fetchone()
 
-    return requested_animal
+       
+        animal = Animal(data['id'], 
+                    data['name'], data['status'], data['breed'], data['customer_id'], data['location_id'])
+        return animal.__dict__
 
 def create_animal(animal):
     # Get the id value of the last animal in the list

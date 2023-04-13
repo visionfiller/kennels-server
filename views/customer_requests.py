@@ -1,12 +1,34 @@
-CUSTOMERS = [
-    {
-        "id": 1,
-        "name": "Ryan Tanay"
-    }
-]
+import sqlite3
+from models import Customer
 
 def get_all_customers():
-    return CUSTOMERS
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+
+       
+        db_cursor.execute("""
+        SELECT
+            c.id,
+            c.name name,
+            c.address address,
+            c.email,
+            c.password
+        FROM Customer c
+       """)
+       
+        customers = []
+
+        # Convert rows of data into a Python list
+        dataset = db_cursor.fetchall()
+
+        # Iterate list of data returned from database
+        for row in dataset:
+
+            customer = Customer(row['id'],row['name'], row['address'], row['email'], row['password'])
+           
+            customers.append(customer.__dict__)
+        return customers
 
 # Function with a single parameter
 def get_single_customer(id):
