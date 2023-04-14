@@ -81,3 +81,16 @@ INSERT INTO `AnimalsAssignedToEmployee` VALUES (null,3 , 3);
 INSERT INTO `AnimalsAssignedToEmployee` VALUES (null,2 ,1);
 INSERT INTO `AnimalsAssignedToEmployee` VALUES (null, 4, 2);
 INSERT INTO `AnimalsAssignedToEmployee` VALUES (null, 5, 1);
+SELECT
+            a.id,
+            a.name name,
+            a.status,
+            a.breed,
+            a.customer_id,
+            a.location_id,
+            c.name,
+            l.name
+        FROM Animal a
+        LEFT JOIN Customer c ON c.id = a.customer_id
+        LEFT JOIN Location l ON l.id = a.location_id
+        WHERE a.name  LIKE "Jax"

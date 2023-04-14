@@ -1,18 +1,5 @@
 import sqlite3
-from models import Location, Animal
-
-LOCATIONS = [
-    {
-        "id": 1,
-        "name": "Nashville North",
-        "address": "8422 Johnson Pike"
-    },
-    {
-        "id": 2,
-        "name": "Nashville South",
-        "address": "209 Emory Drive"
-    }
-]
+from models import Location, Employee
 
 def get_all_locations():
     with sqlite3.connect("./kennel.sqlite3") as conn:
@@ -25,7 +12,7 @@ def get_all_locations():
             l.id,
             l.name name,
             l.address address,
-            COUNT(*) animals
+            COUNT(*) AS animals
         FROM Location l
         JOIN Animal a ON l.id = a.location_id
         GROUP BY a.location_id
@@ -40,62 +27,96 @@ def get_all_locations():
         # Iterate list of data returned from database
         for row in dataset:
 
-            location = Location(row['id'],row['name'], row['address'], row['animals'])
-           
+            location = Location(row['id'],row['name'], row['address'])
+            location.animals = row['animals']
             locations.append(location.__dict__)
         return locations
 
 # Function with a single parameter
 def get_single_location(id):
-    # Variable to hold the found animal, if it exists
-    requested_location = None
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+         SELECT DISTINCT
+            l.id,
+            l.name location_name,
+            l.address location_address,
+            (
+           SELECT GROUP_CONCAT(a.name)
+                FROM Animal a WHERE a.location_id = l.id) as animals_assigned,
+                (
+            SELECT GROUP_CONCAT(e.name)
+                FROM Employee e WHERE e.location_id = l.id) as employees_assigned
+            FROM Location l
+            LEFT JOIN Employee e
+                ON l.id = e.location_id
+            LEFT OUTER JOIN Animal a
+                    ON a.location_id = l.id
+        WHERE l.id = ?;
+        """, ( id, ))
 
-    # Iterate the ANIMALS list above. Very similar to the
-    # for..of loops you used in JavaScript.
-    for location in LOCATIONS:
-        # Dictionaries in Python use [] notation to find a key
-        # instead of the dot notation that JavaScript used.
-        if location["id"] == id:
-            requested_location= location
+        dataset = db_cursor.fetchall()
+        for row in dataset:
+            location = Location(row['id'], row['location_name'], row['location_address'])
+            animals_assigned = row['animals_assigned'].split(",") if row['animals_assigned'] else []
+            assignments= []
+            for assignment in animals_assigned:
+                assignments.append(assignment)
+            location.animals = assignments
+            employees_assigned = row['employees_assigned'].split(",") if row['employees_assigned'] else []
+            employee_assignments= []
+            for assignment in employees_assigned:
+                employee_assignments.append(assignment)
+            location.employees = employee_assignments
+          
+        return location.__dict__
 
-    return requested_location
+def create_location(new_location):
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
 
-def create_location(location):
-    # Get the id value of the last animal in the list
-    max_id = LOCATIONS[-1]["id"]
+        db_cursor.execute("""
+        INSERT INTO Location
+            ( name, address)
+        VALUES
+            ( ?, ?);
+        """, (new_location['name'], new_location['status']))
 
-    # Add 1 to whatever that number is
-    new_id = max_id + 1
+        # The `lastrowid` property on the cursor will return
+        # the primary key of the last thing that got added to
+        # the database.
+        id = db_cursor.lastrowid
 
-    # Add an `id` property to the animal dictionary
-    location["id"] = new_id
-
-    # Add the animal dictionary to the list
-    LOCATIONS.append(location)
-
-    # Return the dictionary with `id` property added
-    return location
+        # Add the `id` property to the animal dictionary that
+        # was sent by the client so that the client sees the
+        # primary key in the response.
+        new_location['id'] = id
+    return new_location
 
 def delete_location(id):
-    # Initial -1 value for animal index, in case one isn't found
-    location_index = -1
-
-    # Iterate the ANIMALS list, but use enumerate() so that you
-    # can access the index value of each item
-    for index, location in enumerate(LOCATIONS):
-        if location["id"] == id:
-            # Found the animal. Store the current index.
-            location_index = index
-
-    # If the animal was found, use pop(int) to remove it from list
-    if location_index >= 0:
-        LOCATIONS.pop(location_index)
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        DELETE FROM Location
+        WHERE id = ?
+        """, (id, ))
 
 def update_location(id, new_location):
-    # Iterate the ANIMALS list, but use enumerate() so that
-    # you can access the index value of each item.
-    for index, location in enumerate(LOCATIONS):
-        if location["id"] == id:
-            # Found the animal. Update the value.
-            LOCATIONS[index] = new_location
-            break
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        UPDATE Location
+             SET
+                name = ?,
+                address = ?
+        WHERE id = ?
+        """, (new_location['name'], new_location['address'], id, ))
+        rows_affected = db_cursor.rowcount
+
+    if rows_affected == 0:
+            # Forces 404 response by main module
+        return False
+    else:
+            # Forces 204 response by main module
+        return True

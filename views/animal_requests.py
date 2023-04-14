@@ -1,35 +1,7 @@
 import sqlite3
 from models import Animal, Location
-from .location_requests import get_single_location
 from .customer_requests import get_single_customer
-
-ANIMALS = [
-    {
-        "id": 1,
-        "name": "Snickers",
-        "species": "Dog",
-        "locationId": 1,
-        "customerId": 4,
-        "status": "Admitted"
-    },
-    {
-        "id": 2,
-        "name": "Roman",
-        "species": "Dog",
-        "locationId": 1,
-        "customerId": 2,
-        "status": "Admitted"
-    },
-    {
-        "id": 3,
-        "name": "Blue",
-        "species": "Cat",
-        "locationId": 2,
-        "customerId": 1,
-        "status": "Admitted"
-    }
-]
-
+from .location_requests import get_single_location
 
 def get_all_animals(query_params):
     with sqlite3.connect("./kennel.sqlite3") as conn:
@@ -84,64 +56,137 @@ def get_all_animals(query_params):
         return animals
 # Function with a single parameter
 def get_single_animal(id):
- with sqlite3.connect("./kennel.sqlite3") as conn:
+    with sqlite3.connect("./kennel.sqlite3") as conn:
         conn.row_factory = sqlite3.Row
         db_cursor = conn.cursor()
         db_cursor.execute("""
-         SELECT
+        SELECT
             a.id,
             a.name name,
             a.status,
             a.breed,
             a.customer_id,
-            a.location_id 
+            a.location_id,
+            c.name,
+            l.name
         FROM Animal a
+        LEFT JOIN Customer c ON c.id = a.customer_id
+        LEFT JOIN Location l ON l.id = a.location_id
         WHERE a.id = ?
         """, (id, ))
 
         data = db_cursor.fetchone()
 
        
-        animal = Animal(data['id'], 
-                    data['name'], data['status'], data['breed'], data['customer_id'], data['location_id'])
+        animal = Animal(data['id'],data['name'], data['status'], data['breed'], data['customer_id'], data['location_id'])
+        animal.customer = get_single_customer(data['customer_id'])
+        animal.location = get_single_location(data['location_id'])
         return animal.__dict__
+def get_single_animal_for_location(id):
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        SELECT
+            a.id,
+            a.name name,
+            a.status,
+            a.breed,
+            a.customer_id,
+            a.location_id,
+            c.name,
+            l.name
+        FROM Animal a
+        LEFT JOIN Customer c ON c.id = a.customer_id
+        LEFT JOIN Location l ON l.id = a.location_id
+        WHERE a.id = ?
+        """, (id, ))
 
-def create_animal(animal):
-    # Get the id value of the last animal in the list
-    max_id = ANIMALS[-1]["id"]
+        data = db_cursor.fetchone()
 
-    # Add 1 to whatever that number is
-    new_id = max_id + 1
+       
+        animal = Animal(data['id'],data['name'], data['status'], data['breed'], data['customer_id'], data['location_id'])
+        animal.customer = get_single_customer(data['customer_id'])
+        animal.location = get_single_location(data['location_id'])
+        return animal.__dict__
+def get_animal_by_word(word):
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
 
-    # Add an `id` property to the animal dictionary
-    animal["id"] = new_id
+        # Write the SQL query to get the information you want
+        db_cursor.execute("""
+        SELECT
+            a.id,
+            a.name name,
+            a.status,
+            a.breed,
+            a.customer_id,
+            a.location_id,
+            c.name,
+            l.name
+        FROM Animal a
+        LEFT JOIN Customer c ON c.id = a.customer_id
+        LEFT JOIN Location l ON l.id = a.location_id
+        WHERE a.name LIKE ?
+        """, ( f"%{word}%", ))
 
-    # Add the animal dictionary to the list
-    ANIMALS.append(animal)
+        animals = []
+        dataset = db_cursor.fetchall()
+        for row in dataset:
 
-    # Return the dictionary with `id` property added
-    return animal
+            animal = Animal(row['id'], row['name'], row['breed'], row['status'], row['location_id'], row['customer_id'])
+            
+            animals.append(animal.__dict__)
+        return animals
+def create_animal(new_animal):
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+
+        db_cursor.execute("""
+        INSERT INTO Animal
+            ( name, status, breed, customer_id, location_id )
+        VALUES
+            ( ?, ?, ?, ?, ?);
+        """, (new_animal['name'], new_animal['status'],
+              new_animal['breed'], new_animal['customer_id'], new_animal['location_id'] ))
+
+        # The `lastrowid` property on the cursor will return
+        # the primary key of the last thing that got added to
+        # the database.
+        id = db_cursor.lastrowid
+
+        # Add the `id` property to the animal dictionary that
+        # was sent by the client so that the client sees the
+        # primary key in the response.
+        new_animal['id'] = id
+    return new_animal
 
 def delete_animal(id):
-    # Initial -1 value for animal index, in case one isn't found
-    animal_index = -1
-
-    # Iterate the ANIMALS list, but use enumerate() so that you
-    # can access the index value of each item
-    for index, animal in enumerate(ANIMALS):
-        if animal["id"] == id:
-            # Found the animal. Store the current index.
-            animal_index = index
-
-    # If the animal was found, use pop(int) to remove it from list
-    if animal_index >= 0:
-        ANIMALS.pop(animal_index)
-    
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        DELETE FROM Animal
+        WHERE id = ?
+        """, (id, ))
 def update_animal(id, new_animal):
-    # Iterate the ANIMALS list, but use enumerate() so that
-    # you can access the index value of each item.
-    for index, animal in enumerate(ANIMALS):
-        if animal["id"] == id:
-            # Found the animal. Update the value.
-            ANIMALS[index] = new_animal
-            break
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        UPDATE Animal
+             SET
+                name = ?,
+                status = ?,
+                breed = ?,
+                customer_id,
+                location_id   
+        WHERE id = ?
+        """, (new_animal['name'], new_animal['status'], new_animal['breed'], new_animal['customer_id'],new_animal['location_id'], id, ))
+        rows_affected = db_cursor.rowcount
+
+    if rows_affected == 0:
+            # Forces 404 response by main module
+        return False
+    else:
+            # Forces 204 response by main module
+        return True

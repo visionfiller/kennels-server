@@ -1,6 +1,6 @@
 import sqlite3
 from models import Employee, Location
-from views import get_single_animal
+from .animal_requests import get_single_animal
 
 def get_all_employees():
     with sqlite3.connect("./kennel.sqlite3") as conn:
@@ -93,42 +93,52 @@ def get_single_employee(id):
     
           
         return employee.__dict__
-def create_employee(employee):
-    # Get the id value of the last animal in the list
-    max_id = EMPLOYEES[-1]["id"]
+def create_employee(new_employee):
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
 
-    # Add 1 to whatever that number is
-    new_id = max_id + 1
+        db_cursor.execute("""
+        INSERT INTO Employee
+            ( name, address, location_id)
+        VALUES
+            ( ?, ?, ?);
+        """, (new_employee['name'], new_employee['address'], new_employee['location_id']))
 
-    # Add an `id` property to the animal dictionary
-    employee["id"] = new_id
+        # The `lastrowid` property on the cursor will return
+        # the primary key of the last thing that got added to
+        # the database.
+        id = db_cursor.lastrowid
 
-    # Add the animal dictionary to the list
-    EMPLOYEES.append(employee)
-
-    # Return the dictionary with `id` property added
-    return employee
+        # Add the `id` property to the animal dictionary that
+        # was sent by the client so that the client sees the
+        # primary key in the response.
+        new_employee['id'] = id
+    return new_employee
 
 def delete_employee(id):
-    # Initial -1 value for animal index, in case one isn't found
-    employee_index = -1
-
-    # Iterate the ANIMALS list, but use enumerate() so that you
-    # can access the index value of each item
-    for index, employee in enumerate(EMPLOYEES):
-        if employee["id"] == id:
-            # Found the animal. Store the current index.
-            employee_index = index
-
-    # If the animal was found, use pop(int) to remove it from list
-    if employee_index >= 0:
-        EMPLOYEES.pop(employee_index)
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        DELETE FROM Employee
+        WHERE id = ?
+        """, (id, ))
 
 def update_employee(id, new_employee):
-    # Iterate the ANIMALS list, but use enumerate() so that
-    # you can access the index value of each item.
-    for index, employee in enumerate(EMPLOYEES):
-        if employee["id"] == id:
-            # Found the animal. Update the value.
-            EMPLOYEES[index] = new_employee
-            break
+    with sqlite3.connect("./kennel.sqlite3") as conn:
+        db_cursor = conn.cursor()
+        db_cursor.execute("""
+        UPDATE Employee
+             SET
+                name = ?,
+                address = ?,
+                location_id = ?
+        WHERE id = ?
+        """, (new_employee['name'], new_employee['address'], new_employee['location_id'], id, ))
+        rows_affected = db_cursor.rowcount
+
+        if rows_affected == 0:
+            # Forces 404 response by main module
+            return False
+        else:
+            # Forces 204 response by main module
+            return True
